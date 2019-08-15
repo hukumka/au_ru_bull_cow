@@ -1,0 +1,15 @@
+{
+  "name": "au_ru_test_task",
+  "version": "0.1.0",
+  "description": "\"Au.ru test task\"",
+  "main": "index.js",
+  "scripts": {
+    "start": "node ./dist/app.js"
+  },
+  "author": "hukumka",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^12.7.2",
+    "typescript": "^3.5.3"
+  }
+}
