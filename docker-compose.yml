@@ -1,0 +1,15 @@
+version: '2'
+services:
+    app:
+        build: ./
+        ports: 
+            - "8080:8080"
+        links: 
+            - database
+        volumes: 
+            - .:/usr/src/app
+        depends_on: 
+            - database
+    database:
+        image: mongo
+

@@ -24,7 +24,7 @@ class App{
     }
 
     private async initMongo(){
-        let connection = await MongoClient.connect("mongodb://localhost:27017/bull_and_cows")
+        let connection = await MongoClient.connect("mongodb://database:27017/bull_and_cows")
             .catch(err => console.log(err));
         if(!connection){
             throw "Unable to create connection";
