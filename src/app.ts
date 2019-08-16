@@ -1,12 +1,18 @@
+import {Application, Request} from "express";
 import express from "express";
 import session from "express-session";
 import bodyParser from "body-parser";
 import {MongoClient, Collection, ObjectId} from "mongodb";
 
+interface Responce{
+    message: string,
+    kind: "err" | "win" | "info"
+}
+
 class App{
     private connection: MongoClient;
     private gameSessions: Collection;
-    private app: express.Application;
+    private app: Application;
     private port: number;
 
     constructor(port: number){
@@ -56,12 +62,40 @@ class App{
 
         const self = this;
         this.app.post('/guess', async (req, res) => {
-            if(!req.session.gameId){
-                req.session.gameId = await self.new_game_session();
-            }
-            let message = await self.game_session_guess(req.session, req.body.guess); 
-            res.json({message: message});
+            let answer = await self.game_session_guess(req.session, req.body.guess);
+            res.json(answer);
         });
+    }
+
+    /**
+     * Query game session `id` with a guess and increment attempt count.
+     * If guess was correct erase game session.
+     */
+    private async game_session_guess(session, guess: string): Promise<Responce>{
+        if(!guess.match(/^[0-9]{4}$/)){
+            return {message: "You must enter 4 digit number", kind: "err"};
+        }
+        if(!session.gameId){
+            session.gameId = await this.new_game_session();
+        }
+ 
+        const filterQuery = {_id: new ObjectId(session.gameId)};
+        const updateQuery = {$inc: {"attempts": 1}}; // Increment `attempts` by one
+        const res = await this.gameSessions.findOneAndUpdate(filterQuery, updateQuery);
+        if(!res.ok){
+            // Invalid session was supplied
+            session.gameId = null;
+            return {message: "Invalid game session", kind: "err"};
+        }
+
+        if(res.value.value === guess){
+            await this.gameSessions.deleteOne(filterQuery);
+            const attempts = res.value.attempts + 1;
+            session.gameId = null;
+            return {message: `Correct! ${attempts} attempts.`, kind: "win"};
+        }else{
+            return {message: processGuess(res.value.value, guess), kind: "info"};
+        }
     }
 
     /**
@@ -79,27 +113,6 @@ class App{
         return data._id;
     }
 
-    /**
-     * Query game session `id` with a guess and increment attempt count.
-     * If guess was correct erase game session.
-     */
-    private async game_session_guess(session, guess: string): Promise<string>{
-        if(!guess.match(/^[0-9]{4}$/)){
-            return "You must enter 4 digit number";
-        }
- 
-        const filterQuery = {_id: new ObjectId(session.gameId)};
-        const updateQuery = {$inc: {"attempts": 1}}; // Increment `attempts` by one
-        const res = await this.gameSessions.findOneAndUpdate(filterQuery, updateQuery);
-        if(res.value.value === guess){
-            await this.gameSessions.deleteOne(filterQuery);
-            const attempts = res.value.attempts + 1;
-            session.gameId = null;
-            return `Correct! ${attempts} attempts.`;
-        }else{
-            return processGuess(res.value.value, guess);
-        }
-    }
 }
 
 function processGuess(expected: string, guess: string): string{

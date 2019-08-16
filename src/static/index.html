@@ -34,6 +34,7 @@
                 body: JSON.stringify({guess: guess_value})
             });
             let data = await responce.json();
+            console.log(data);
             message_elem.innerHTML = `<p>${guess_value} | ${data.message}</p>` + message_elem.innerHTML;
         }
     </script>

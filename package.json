@@ -4,7 +4,7 @@
   "description": "\"Au.ru test task\"",
   "main": "index.js",
   "scripts": {
-    "start": "tsc && cp ./src/static ./dist/static -r && node ./dist/app.js"
+    "start": "tsc && cp ./src/static ./dist/ -r && node ./dist/app.js"
   },
   "author": "hukumka",
   "license": "MIT",
