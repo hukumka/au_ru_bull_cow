@@ -1,0 +1,29 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+    </head>
+
+    <body>
+        <input id="guess_elem"/><input onclick="guess()" type="button" value="guess"/>
+        <div id="message_elem"></div>
+    </body>
+
+    <script>
+        let guess_elem = document.getElementById("guess_elem");
+        let message_elem = document.getElementById("message_elem");
+        
+        async function guess(){
+            let guess_value = guess_elem.value;
+            let responce = await fetch('/guess', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({guess: guess_value})
+            });
+            let data = await responce.json();
+            message_elem.innerHTML = data.message;
+        }
+    </script>
+</html>

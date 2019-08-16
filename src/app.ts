@@ -1,35 +1,95 @@
-import {createInterface} from "readline";
+import express from "express";
+import session from "express-session";
+import bodyParser from "body-parser";
+import {MongoClient, Collection, ObjectId} from "mongodb";
 
-let readline = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-});
+class App{
+    private connection: MongoClient;
+    private game_sessions: Collection;
+    private app: express.Application;
+    private port: number;
 
-async function main(){
-    console.log(`
-    Welcome. App generated random 4 digit number.
-    Your task is to guess it.
-    Each guess attempt will provide you with additional
-    information such as:
-    
-    + Every digit which was placed correctly will be marked with 'B'
-    + Every digit which was not placed correctly, but present in 
-        generated number will be marked as 'K'
-    + Digits not present in generated number will be marked as '.'
-    `);
-    let num = genRandomNumber();
-    let attempts = 0;
-    let guessed = false;
-    while(!guessed){
-        let guess = await read_user_guess();
-        attempts++;
-        console.log(processGuess(num, guess));
-        if(guess == num){
-            guessed = true;
+    constructor(port: number){
+        this.port = port;
+    }
+
+    public async run(){
+        await this.init();
+        await this.app.listen(this.port);
+    }
+
+    private async init(){
+        await this.initMongo();
+        await this.initApp();
+    }
+
+    private async initMongo(){
+        let connection = await MongoClient.connect("mongodb://localhost:27017/bull_and_cows")
+            .catch(err => console.log(err));
+        if(!connection){
+            throw "Unable to create connection";
+        }
+        this.connection = connection;
+        let db = await connection.db("bull_and_cows");
+        this.game_sessions = db.collection("game_sessions");
+    }
+
+    private async initApp(){
+        this.app = express();
+        this.app.use(bodyParser.urlencoded({ extended: false }));
+        this.app.use(bodyParser.json());
+        this.app.use(session({
+            secret: "secret",
+            saveUninitialized: true,
+            resave: true,
+        }));
+        this.app.get('/', function(req, res){
+            res.sendFile("index.html", {root: "./dist/static"});
+        });
+
+        let self = this;
+        this.app.post('/guess', async function(req, res){
+            if(!req.session.gameId){
+                console.log("new game");
+                req.session.gameId = await self.new_game_session();
+            }
+            console.log(req.session.gameId);
+            res.json({
+                message: await self.game_session_guess(req.session.gameId, req.body.guess)
+            });
+        });
+    }
+
+    private async new_game_session(): Promise<string>{
+        // mongodb sets property _id after insert.
+        // In order to get access to it `any`
+        // used to surpass error.
+        let data: any = {
+            attempts: 0,
+            value: genRandomNumber(),
+        };
+        await this.game_sessions.insertOne(data);
+        return data._id;
+    }
+
+    private async game_session_guess(id: string, guess: string): Promise<string>{
+        if(!guess.match(/^[0-9]{4}$/)){
+            return "You must enter 4 digit number";
+        }
+ 
+        let filterQuery = {_id: new ObjectId(id)};
+        let updateQuery = {$inc: {"attempts": 1}}; // Increment `attempts` by one
+        let res = await this.game_sessions.findOneAndUpdate(filterQuery, updateQuery);
+        console.log(res);
+        if(res.value.value === guess){
+            await this.game_sessions.deleteOne(filterQuery);
+            let attempts = res.value.attempts + 1;
+            return `Correct! ${attempts} attempts.`
+        }else{
+            let res_message = processGuess(res.value.value, guess);
+            return res_message;
         }
     }
-    console.log(`Guessed correctly. ${attempts} attempts.`);
-    process.exit();
 }
 
 function processGuess(expected: string, guess: string): string{
@@ -60,21 +120,4 @@ function genRandomNumber(): string{
     return num_str;
 }
 
-async function read_user_guess(): Promise<string>{
-    while(true){
-        let line = await read_line("Your guess: ");
-        if(!line.match("^[0-9]{4}$")){
-            console.log("You must enter 4 digit number");
-        }else{
-            return line;
-        }
-    }
-}
-
-async function read_line(question: string): Promise<string>{
-    return new Promise<string>(function(resolve, request){
-        readline.question(question, resolve)
-    });
-}
-
-main();
+new App(8080).run();
