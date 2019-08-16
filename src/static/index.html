@@ -5,6 +5,14 @@
 
     <body>
         <div>
+            <p>Computer generates random 4 digit number</p>
+            <p>Your task is to guess it, and every guess will provide you with following information:</p>
+            <ul>
+                <li>Every digit which was placed correctly marked as 'B'</li>
+                <li>Every digit which was not placed correctly, but present in the number marked as 'K'</li>
+                <li>Every digit which is not in the number marked as '.'</li>
+            </ul>
+            <p>After number was guessed guessing again will restart the game</p>
         </div>
 
         <input id="guess_elem"/><input onclick="guess()" type="button" value="guess"/>
@@ -26,7 +34,7 @@
                 body: JSON.stringify({guess: guess_value})
             });
             let data = await responce.json();
-            message_elem.innerHTML = data.message;
+            message_elem.innerHTML = `<p>${guess_value} | ${data.message}</p>` + message_elem.innerHTML;
         }
     </script>
 </html>
