@@ -24,14 +24,21 @@ class App{
     }
 
     private async initMongo(){
-        let connection = await MongoClient.connect("mongodb://database:27017/bull_and_cows")
+        let db_uri = process.env.MONGODB_URI || "mongodb://database:27017/bull_and_cows";
+        let db_name = this.split_database_from_uri(db_uri);
+        let connection = await MongoClient.connect(db_uri)
             .catch(err => console.log(err));
         if(!connection){
             throw "Unable to create connection";
         }
         this.connection = connection;
-        let db = await connection.db("bull_and_cows");
+        let db = await connection.db(db_name);
         this.game_sessions = db.collection("game_sessions");
+    }
+
+    private split_database_from_uri(uri: string): string{
+        let arr = uri.split("/");
+        return arr[arr.length-1]
     }
 
     private async initApp(){
@@ -124,4 +131,4 @@ function genRandomNumber(): string{
     return num_str;
 }
 
-new App(8080).run();
+new App(Number(process.env.PORT) || 8080).run();
