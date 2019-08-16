@@ -50,16 +50,16 @@ class App{
         let self = this;
         this.app.post('/guess', async function(req, res){
             if(!req.session.gameId){
-                console.log("new game");
                 req.session.gameId = await self.new_game_session();
             }
-            console.log(req.session.gameId);
-            res.json({
-                message: await self.game_session_guess(req.session.gameId, req.body.guess)
-            });
+            let message = await self.game_session_guess(req.session, req.body.guess); 
+            res.json({message: message});
         });
     }
 
+    /**
+     * Start new game session
+     */
     private async new_game_session(): Promise<string>{
         // mongodb sets property _id after insert.
         // In order to get access to it `any`
@@ -72,18 +72,22 @@ class App{
         return data._id;
     }
 
-    private async game_session_guess(id: string, guess: string): Promise<string>{
+    /**
+     * Query game session `id` with a guess and increment attempt count.
+     * If guess was correct erase game session.
+     */
+    private async game_session_guess(session, guess: string): Promise<string>{
         if(!guess.match(/^[0-9]{4}$/)){
             return "You must enter 4 digit number";
         }
  
-        let filterQuery = {_id: new ObjectId(id)};
+        let filterQuery = {_id: new ObjectId(session.gameId)};
         let updateQuery = {$inc: {"attempts": 1}}; // Increment `attempts` by one
         let res = await this.game_sessions.findOneAndUpdate(filterQuery, updateQuery);
-        console.log(res);
         if(res.value.value === guess){
             await this.game_sessions.deleteOne(filterQuery);
             let attempts = res.value.attempts + 1;
+            session.gameId = null;
             return `Correct! ${attempts} attempts.`
         }else{
             let res_message = processGuess(res.value.value, guess);
