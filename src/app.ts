@@ -5,7 +5,7 @@ import {MongoClient, Collection, ObjectId} from "mongodb";
 
 class App{
     private connection: MongoClient;
-    private game_sessions: Collection;
+    private gameSessions: Collection;
     private app: express.Application;
     private port: number;
 
@@ -13,7 +13,7 @@ class App{
         this.port = port;
     }
 
-    public async run(){
+    async run(){
         await this.init();
         await this.app.listen(this.port);
     }
@@ -24,21 +24,21 @@ class App{
     }
 
     private async initMongo(){
-        let db_uri = process.env.MONGODB_URI || "mongodb://database:27017/bull_and_cows";
-        let db_name = this.split_database_from_uri(db_uri);
-        let connection = await MongoClient.connect(db_uri)
+        const dbUri = process.env.MONGODB_URI || "mongodb://database:27017/bull_and_cows";
+        const dbName = this.split_database_from_uri(dbUri);
+        const connection = await MongoClient.connect(dbUri)
             .catch(err => console.log(err));
         if(!connection){
-            throw "Unable to create connection";
+            throw new Error("Unable to create connection");
         }
         this.connection = connection;
-        let db = await connection.db(db_name);
-        this.game_sessions = db.collection("game_sessions");
+        let db = await connection.db(dbName);
+        this.gameSessions = db.collection("game_sessions");
     }
 
     private split_database_from_uri(uri: string): string{
         let arr = uri.split("/");
-        return arr[arr.length-1]
+        return arr[arr.length-1];
     }
 
     private async initApp(){
@@ -50,12 +50,12 @@ class App{
             saveUninitialized: true,
             resave: true,
         }));
-        this.app.get('/', function(req, res){
+        this.app.get('/', (req, res) => {
             res.sendFile("index.html", {root: "./dist/static"});
         });
 
-        let self = this;
-        this.app.post('/guess', async function(req, res){
+        const self = this;
+        this.app.post('/guess', async (req, res) => {
             if(!req.session.gameId){
                 req.session.gameId = await self.new_game_session();
             }
@@ -75,7 +75,7 @@ class App{
             attempts: 0,
             value: genRandomNumber(),
         };
-        await this.game_sessions.insertOne(data);
+        await this.gameSessions.insertOne(data);
         return data._id;
     }
 
@@ -88,17 +88,16 @@ class App{
             return "You must enter 4 digit number";
         }
  
-        let filterQuery = {_id: new ObjectId(session.gameId)};
-        let updateQuery = {$inc: {"attempts": 1}}; // Increment `attempts` by one
-        let res = await this.game_sessions.findOneAndUpdate(filterQuery, updateQuery);
+        const filterQuery = {_id: new ObjectId(session.gameId)};
+        const updateQuery = {$inc: {"attempts": 1}}; // Increment `attempts` by one
+        const res = await this.gameSessions.findOneAndUpdate(filterQuery, updateQuery);
         if(res.value.value === guess){
-            await this.game_sessions.deleteOne(filterQuery);
-            let attempts = res.value.attempts + 1;
+            await this.gameSessions.deleteOne(filterQuery);
+            const attempts = res.value.attempts + 1;
             session.gameId = null;
-            return `Correct! ${attempts} attempts.`
+            return `Correct! ${attempts} attempts.`;
         }else{
-            let res_message = processGuess(res.value.value, guess);
-            return res_message;
+            return processGuess(res.value.value, guess);
         }
     }
 }
@@ -106,7 +105,7 @@ class App{
 function processGuess(expected: string, guess: string): string{
     let res = "";
     for(let i=0; i<4; ++i){
-        if(expected.charAt(i) == guess.charAt(i)){
+        if(expected.charAt(i) === guess.charAt(i)){
             res += "B";
         }else if(expected.includes(guess.charAt(i))){
             res += "K";
@@ -124,11 +123,11 @@ function processGuess(expected: string, guess: string): string{
  * start with zeroes ('0100', '0042', '0000')
  */
 function genRandomNumber(): string{
-    let num = Math.floor(Math.random() * 10000);
+    const num = Math.floor(Math.random() * 10000);
     // Convert to string padded with zeroes
     // to length of 4
-    let num_str = ('0000' + num).slice(-4);
-    return num_str;
+    const numStr = ('0000' + num).slice(-4);
+    return numStr;
 }
 
 new App(Number(process.env.PORT) || 8080).run();
