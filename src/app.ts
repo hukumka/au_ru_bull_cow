@@ -10,7 +10,7 @@ interface Responce{
 }
 
 class App{
-    private connection: MongoClient;
+    private client: MongoClient;
     private gameSessions: Collection;
     private app: Application;
     private port: number;
@@ -32,13 +32,13 @@ class App{
     private async initMongo(){
         const dbUri = process.env.MONGODB_URI || "mongodb://database:27017/bull_and_cows";
         const dbName = this.split_database_from_uri(dbUri);
-        const connection = await MongoClient.connect(dbUri)
+        const client = await MongoClient.connect(dbUri)
             .catch(err => console.log(err));
-        if(!connection){
+        if(!client){
             throw new Error("Unable to create connection");
         }
-        this.connection = connection;
-        let db = await connection.db(dbName);
+        this.client = client;
+        let db = await client.db(dbName);
         this.gameSessions = db.collection("game_sessions");
     }
 
@@ -62,7 +62,11 @@ class App{
 
         const self = this;
         this.app.post('/guess', async (req, res) => {
-            let answer = await self.game_session_guess(req.session, req.body.guess);
+            let session = self.client.startSession();
+            let answer = null;
+            await session.withTransaction(async () => {
+                answer = await self.game_session_guess(req.session, req.body.guess);
+            });
             res.json(answer);
         });
     }
